@@ -1,0 +1,9 @@
+pandas
+numpy
+scipy
+scikit-bio
+statsmodels
+matplotlib
+networkx
+pyyaml
+pytest
