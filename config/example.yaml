@@ -1,0 +1,31 @@
+project_name: WWTP-ABRG-Resistome-Pipeline
+input:
+  ko_table: data/raw/ko_abundance.csv
+  ko_stratified: data/raw/ko_stratified.csv
+  metadata: metadata/sample_metadata.csv
+  ko_annotations: metadata/ko_annotations.csv
+output:
+  processed_dir: data/processed
+  tables_dir: results/tables
+  figures_dir: results/figures
+  networks_dir: results/networks
+  manifest: results/run_manifest.json
+parameters:
+  top_n: 15
+  top30_n: 30
+  prevalence_threshold: 0.5
+  correlation_r: 0.6
+  p_value: 0.05
+  diff_method: ttest
+  random_seed: 42
+  pcoa_metric: braycurtis
+  clustering_method: average
+scenarios:
+  efflux_only:
+    mechanism: ["Efflux"]
+  mixed:
+    mechanism: []
+  prevalence_filtered:
+    min_prevalence: 0.5
+  otu_sum:
+    use_stratified: true
