@@ -1,0 +1,6 @@
+KO,gene_name,mechanism,antibiotic_class
+K00001,efflux_pump_A,Efflux,Multidrug
+K00002,beta_lactamase_B,Enzymatic,Beta-lactam
+K00003,regulator_C,Target_modification,Macrolide
+K00004,efflux_pump_D,Efflux,Tetracycline
+K00005,enzyme_E,Enzymatic,Aminoglycoside

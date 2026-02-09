@@ -1,0 +1,14 @@
+name: wwtp-abrg
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pandas
+  - numpy
+  - scipy
+  - scikit-bio
+  - statsmodels
+  - matplotlib
+  - networkx
+  - pyyaml
+  - pytest
