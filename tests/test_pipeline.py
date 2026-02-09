@@ -1,16 +1,26 @@
 from pathlib import Path
 import sys
 
+import numpy as np
+import pandas as pd
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from wwtp_abrg.pipeline import run_pipeline
 
 
 def test_pipeline_runs(tmp_path: Path) -> None:
+    ko_source = Path("data/raw/ko_abundance.csv")
+    ko_df = pd.read_csv(ko_source, index_col=0)
+    ko_contiguous = np.ascontiguousarray(ko_df.values)
+    ko_df = pd.DataFrame(ko_contiguous, index=ko_df.index, columns=ko_df.columns)
+    ko_table_path = tmp_path / "ko_abundance.csv"
+    ko_df.to_csv(ko_table_path)
+
     config = {
         "project_name": "WWTP-ABRG-Resistome-Pipeline",
         "input": {
-            "ko_table": "data/raw/ko_abundance.csv",
+            "ko_table": str(ko_table_path),
             "ko_stratified": "data/raw/ko_stratified.csv",
             "metadata": "metadata/sample_metadata.csv",
             "ko_annotations": "metadata/ko_annotations.csv",
