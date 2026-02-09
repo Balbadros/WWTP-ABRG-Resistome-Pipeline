@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+title: WWTP-ABRG-Resistome-Pipeline
+authors:
+  - family-names: "Your"
+    given-names: "Name"
+message: "If you use this pipeline, please cite it."
+license: MIT
+version: 0.1.0
+date-released: 2025-02-07
