@@ -8,8 +8,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-import pandas as pd
-
 from wwtp_abrg import __version__, analysis, figures, io, network, validation
 
 
