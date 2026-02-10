@@ -20,6 +20,16 @@ parameters:
   random_seed: 42
   pcoa_metric: braycurtis
   clustering_method: average
+  plot_annotate_samples: false
+  heatmap_label_style: KO_gene
+  time_series_top_n: 10
+  rolling_window_days: 7
+comparisons:
+  - name: early_vs_late
+    group_col: period
+    group_a: early
+    group_b: late
+    method: ttest
 scenarios:
   efflux_only:
     mechanism: ["Efflux"]

@@ -134,3 +134,30 @@ def stratified_to_ko_table(stratified: pd.DataFrame) -> pd.DataFrame:
     sample_cols = [col for col in stratified.columns if col not in {"KO", "Taxon"}]
     grouped = stratified.groupby("KO", as_index=False)[sample_cols].sum()
     return grouped.set_index("KO")[sample_cols]
+
+
+def build_table1(top30: pd.DataFrame) -> pd.DataFrame:
+    """Build publication Table 1 from a Top-30 major ABRGs table."""
+    table = top30.copy()
+    table = table.sort_values("mean_abundance", ascending=False)
+    table.insert(0, "rank", range(1, len(table) + 1))
+    columns = ["rank", "gene_name", "mechanism", "antibiotic_class", "mean_abundance", "prevalence"]
+    if "description" in table.columns:
+        columns.insert(4, "description")
+    table = table.reset_index().rename(columns={"index": "KO"})
+    return table[["rank", "KO", *columns[1:]]]
+
+
+def top_kos_time_series_tidy(
+    relative_abundance: pd.DataFrame,
+    metadata: pd.DataFrame,
+    top_n: int,
+    day_col: str = "day",
+) -> pd.DataFrame:
+    """Return tidy time-series table for top KOs."""
+    mean_abundance = relative_abundance.mean(axis=1).sort_values(ascending=False)
+    top_kos = mean_abundance.head(top_n).index
+    top_table = relative_abundance.loc[top_kos]
+    tidy = top_table.reset_index().melt(id_vars="KO", var_name="sample_id", value_name="abundance")
+    tidy = tidy.merge(metadata[["sample_id", day_col]], on="sample_id", how="left")
+    return tidy[["day", "KO", "abundance", "sample_id"]].sort_values(["day", "KO"])

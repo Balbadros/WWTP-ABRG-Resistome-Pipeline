@@ -56,7 +56,10 @@ def test_pipeline_runs(tmp_path: Path) -> None:
         Path(config["output"]["processed_dir"]) / "ko_relative_abundance.csv",
         Path(config["output"]["tables_dir"]) / "ko_richness.csv",
         Path(config["output"]["tables_dir"]) / "top_kos_over_time.csv",
-        Path(config["output"]["tables_dir"]) / "differential_abundance.csv",
+        Path(config["output"]["tables_dir"]) / "differential_abundance_early_vs_late.csv",
+        Path(config["output"]["tables_dir"]) / "differential_abundance_early_vs_late_summary.csv",
+        Path(config["output"]["tables_dir"]) / "Table1_Top30_major_ABRGs.csv",
+        Path(config["output"]["tables_dir"]) / "top_kos_time_series_tidy.csv",
         Path(config["output"]["networks_dir"]) / "spearman_edges.csv",
         Path(config["output"]["manifest"]),
     ]
