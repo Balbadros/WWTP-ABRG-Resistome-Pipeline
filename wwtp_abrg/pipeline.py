@@ -22,7 +22,7 @@ def run_pipeline(config: Dict[str, Any]) -> None:
     validation.validate_samples(ko_table, metadata)
     validation.validate_non_negative(ko_table, "KO")
     validation.validate_no_missing(ko_table, "KO")
-    validation.validate_no_missing(metadata, "metadata", required_cols=["sample_id", "period"])
+    validation.validate_no_missing(metadata, "metadata", required_cols=["sample_id"])
 
     io.ensure_dirs(
         [
@@ -49,9 +49,42 @@ def run_pipeline(config: Dict[str, Any]) -> None:
     io.write_table(top_kos, Path(config["output"]["tables_dir"]) / "top_kos_over_time.csv")
 
     logger.info("Differential abundance")
-    diff = analysis.differential_abundance(ko_table, metadata, method=config["parameters"]["diff_method"])
-    io.write_table(diff.table, Path(config["output"]["tables_dir"]) / "differential_abundance.csv")
-    io.write_table(diff.summary, Path(config["output"]["tables_dir"]) / "differential_abundance_summary.csv")
+    comparisons = config.get("comparisons")
+    if not comparisons:
+        if "period" in metadata.columns:
+            comparisons = [
+                {
+                    "name": "early_vs_late",
+                    "group_col": "period",
+                    "group_a": "early",
+                    "group_b": "late",
+                    "method": config["parameters"].get("diff_method", "ttest"),
+                }
+            ]
+        else:
+            comparisons = []
+            logger.warning("No comparisons configured and 'period' column missing; skipping differential abundance.")
+    for comparison in comparisons:
+        group_col = comparison["group_col"]
+        if group_col not in metadata.columns:
+            logger.warning("Skipping comparison '%s' (missing column '%s').", comparison["name"], group_col)
+            continue
+        diff = analysis.differential_abundance(
+            ko_table,
+            metadata,
+            group_col=group_col,
+            group_a=comparison["group_a"],
+            group_b=comparison["group_b"],
+            method=comparison.get("method", "ttest"),
+        )
+        io.write_table(
+            diff.table,
+            Path(config["output"]["tables_dir"]) / f"differential_abundance_{comparison['name']}.csv",
+        )
+        io.write_table(
+            diff.summary,
+            Path(config["output"]["tables_dir"]) / f"differential_abundance_{comparison['name']}_summary.csv",
+        )
 
     logger.info("PCA and PCoA")
     pca_coords = analysis.compute_pca(rel_abundance)
@@ -91,6 +124,7 @@ def run_pipeline(config: Dict[str, Any]) -> None:
 
     logger.info("Top 30 ABRGs scenarios")
     scenarios = config.get("scenarios", {})
+    top30_results = {}
     for name, settings in scenarios.items():
         mechanism = settings.get("mechanism")
         prevalence = settings.get("min_prevalence", config["parameters"]["prevalence_threshold"])
@@ -107,12 +141,102 @@ def run_pipeline(config: Dict[str, Any]) -> None:
             prevalence_threshold=prevalence,
             mechanism_filter=mechanism if mechanism else None,
         )
+        top30_results[name] = top30
         io.write_table(top30, Path(config["output"]["tables_dir"]) / f"top30_{name}.csv")
+
+    logger.info("Generating Table 1")
+    mixed_top30 = top30_results.get("mixed")
+    if mixed_top30 is None:
+        mixed_top30 = analysis.generate_top30(
+            ko_table,
+            annotations,
+            top_n=config["parameters"]["top30_n"],
+            prevalence_threshold=config["parameters"]["prevalence_threshold"],
+            mechanism_filter=None,
+        )
+    table1 = analysis.build_table1(mixed_top30)
+    io.write_tidy(table1, Path(config["output"]["tables_dir"]) / "Table1_Top30_major_ABRGs.csv")
+    table1_md = table1.to_markdown(index=False)
+    docs_path = Path("docs")
+    docs_path.mkdir(parents=True, exist_ok=True)
+    table1_md_path = docs_path / "Table1_Top30_major_ABRGs.md"
+    with table1_md_path.open("w", encoding="utf-8") as md_handle:
+        md_handle.write(table1_md + "\n")
 
     logger.info("Generating figures")
     figures.plot_top_kos(top_kos, Path(config["output"]["figures_dir"]) / "top_kos_over_time.png")
-    figures.plot_pca(pca_coords, Path(config["output"]["figures_dir"]) / "pca.png")
-    figures.plot_pcoa(pcoa_coords, Path(config["output"]["figures_dir"]) / "pcoa.png")
+    group_col = None
+    for candidate in ["period", "season", "phase"]:
+        if candidate in metadata.columns:
+            group_col = candidate
+            break
+    annotate_samples = config["parameters"].get("plot_annotate_samples", False)
+    figures.plot_pca(
+        pca_coords,
+        metadata,
+        group_col=group_col,
+        annotate_samples=annotate_samples,
+        output_path=Path(config["output"]["figures_dir"]) / "pca.png",
+    )
+    figures.plot_pcoa(
+        pcoa_coords,
+        metadata,
+        group_col=group_col,
+        annotate_samples=annotate_samples,
+        output_path=Path(config["output"]["figures_dir"]) / "pcoa.png",
+    )
+
+    if top30_results.get("mixed") is None:
+        top30_results["mixed"] = analysis.generate_top30(
+            ko_table,
+            annotations,
+            top_n=config["parameters"]["top30_n"],
+            prevalence_threshold=config["parameters"]["prevalence_threshold"],
+            mechanism_filter=None,
+        )
+    figures.plot_top30_heatmap(
+        rel_abundance,
+        metadata,
+        top30_results["mixed"],
+        Path(config["output"]["figures_dir"]) / "heatmap_top30_mixed.png",
+        label_style=config["parameters"].get("heatmap_label_style", "KO_gene"),
+    )
+    if top30_results.get("efflux_only") is None:
+        top30_results["efflux_only"] = analysis.generate_top30(
+            ko_table,
+            annotations,
+            top_n=config["parameters"]["top30_n"],
+            prevalence_threshold=config["parameters"]["prevalence_threshold"],
+            mechanism_filter=["Efflux"],
+        )
+    figures.plot_top30_heatmap(
+        rel_abundance,
+        metadata,
+        top30_results["efflux_only"],
+        Path(config["output"]["figures_dir"]) / "heatmap_top30_efflux_only.png",
+        label_style=config["parameters"].get("heatmap_label_style", "KO_gene"),
+    )
+
+    if "day" in metadata.columns:
+        tidy_ts = analysis.top_kos_time_series_tidy(
+            rel_abundance,
+            metadata,
+            top_n=config["parameters"].get("time_series_top_n", 10),
+        )
+        io.write_tidy(
+            tidy_ts,
+            Path(config["output"]["tables_dir"]) / "top_kos_time_series_tidy.csv",
+        )
+        figures.plot_top_kos_time_series(
+            tidy_ts,
+            Path(config["output"]["figures_dir"]) / "top_kos_time_series.png",
+            rolling_window=config["parameters"].get("rolling_window_days", 7),
+        )
+        figures.plot_richness_over_time(
+            richness_df,
+            metadata,
+            Path(config["output"]["figures_dir"]) / "richness_over_time.png",
+        )
 
     logger.info("Writing manifest")
     manifest = {

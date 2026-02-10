@@ -26,7 +26,7 @@ Provide the following inputs via `config.yaml`:
 
 - **PICRUSt2 KO table**: KO abundance table (rows = KO IDs, columns = sample IDs).
 - **Optional stratified KO table**: PICRUSt2 stratified output for taxon attribution.
-- **Sample metadata**: includes `sample_id` and `period` (early/late).
+- **Sample metadata**: includes `sample_id`; recommended `day` (numeric), `period` (early/late), plus optional `season` and `phase`.
 - **KO annotations**: KO ID, gene name, mechanism, antibiotic class.
 - **Optional**: taxonomy or 16S cluster tables (expandable in future).
 
@@ -55,22 +55,30 @@ The pipeline generates:
 - **KO abundance tables**: `data/processed/ko_raw_abundance.csv`, `data/processed/ko_relative_abundance.csv`
 - **KO richness**: `results/tables/ko_richness.csv`
 - **Top KOs over time**: `results/tables/top_kos_over_time.csv`
-- **Differential abundance**: `results/tables/differential_abundance.csv` and summary
+- **Differential abundance**: `results/tables/differential_abundance_<comparison>.csv` and summary
 - **PCA/PCoA**: coordinate tables and plots
 - **Bray–Curtis + PERMANOVA**: distance matrix and PERMANOVA table
 - **Co-occurrence network edges**: `results/networks/spearman_edges.csv`
 - **Taxon attribution**: `results/tables/taxon_contributions.csv`
 - **Top 30 major ABRGs**: `results/tables/top30_*.csv`
+- **Table 1 (Top 30 major ABRGs)**: `results/tables/Table1_Top30_major_ABRGs.csv` + `docs/Table1_Top30_major_ABRGs.md`
+- **Heatmaps**: `results/figures/heatmap_top30_mixed.png`, `results/figures/heatmap_top30_efflux_only.png`
+- **Time-series**: `results/figures/top_kos_time_series.png`, `results/figures/richness_over_time.png`
+- **Time-series tidy table**: `results/tables/top_kos_time_series_tidy.csv`
 - **Manifest**: `results/run_manifest.json` with timestamp + parameters
 
 ## Figure/Table mapping (paper assets)
 
 | Output | Description | File |
 | --- | --- | --- |
-| Table 1 | Top 30 major ABRGs with KO ID, gene name, mechanism, antibiotic class | `results/tables/top30_mixed.csv` (or scenario-specific) |
+| Table 1 | Top 30 major ABRGs with KO ID, gene name, mechanism, antibiotic class | `results/tables/Table1_Top30_major_ABRGs.csv` |
 | Fig. PCA | PCA scatter | `results/figures/pca.png` |
 | Fig. PCoA | PCoA scatter | `results/figures/pcoa.png` |
 | Fig. Top KOs | Top KOs over time | `results/figures/top_kos_over_time.png` |
+| Fig. Heatmap (mixed) | Top-30 major ABRGs | `results/figures/heatmap_top30_mixed.png` |
+| Fig. Heatmap (efflux) | Top-30 efflux-only ABRGs | `results/figures/heatmap_top30_efflux_only.png` |
+| Fig. Time series | Rolling mean for top KOs | `results/figures/top_kos_time_series.png` |
+| Fig. Richness | KO richness over day | `results/figures/richness_over_time.png` |
 
 ## Configuration
 
@@ -80,6 +88,8 @@ Edit `config/example.yaml` to set:
 - `correlation_r`, `p_value`
 - input and output paths
 - scenario settings for `top30` tables (efflux-only, mixed, prevalence-filtered, OTU-sum)
+- comparison settings for differential abundance (multiple group comparisons)
+- plotting toggles (`plot_annotate_samples`, `heatmap_label_style`, `time_series_top_n`, `rolling_window_days`)
 
 ## Extending differential abundance
 

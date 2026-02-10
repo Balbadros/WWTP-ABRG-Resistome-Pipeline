@@ -65,7 +65,7 @@ def differential_abundance(
 
 
 def compute_pca(matrix: pd.DataFrame, n_components: int = 2) -> pd.DataFrame:
-    data = matrix.T.values
+    data = np.ascontiguousarray(matrix.T.values)
     data = data - data.mean(axis=0)
     u, s, vh = np.linalg.svd(data, full_matrices=False)
     coords = u[:, :n_components] * s[:n_components]
@@ -73,14 +73,16 @@ def compute_pca(matrix: pd.DataFrame, n_components: int = 2) -> pd.DataFrame:
 
 
 def compute_pcoa(matrix: pd.DataFrame, metric: str = "braycurtis") -> Tuple[pd.DataFrame, pd.DataFrame]:
-    distance = beta_diversity(metric, matrix.T.values, ids=matrix.columns)
+    data = np.ascontiguousarray(matrix.T.values)
+    distance = beta_diversity(metric, data, ids=matrix.columns)
     ordination = pcoa(distance)
     coords = ordination.samples.iloc[:, :2]
     return coords, ordination.proportion_explained
 
 
 def compute_bray_curtis(matrix: pd.DataFrame) -> pd.DataFrame:
-    distance = beta_diversity("braycurtis", matrix.T.values, ids=matrix.columns)
+    data = np.ascontiguousarray(matrix.T.values)
+    distance = beta_diversity("braycurtis", data, ids=matrix.columns)
     return pd.DataFrame(distance.data, index=distance.ids, columns=distance.ids)
 
 
@@ -91,7 +93,9 @@ def compute_permanova(distance_df: pd.DataFrame, metadata: pd.DataFrame, group_c
 
 
 def compute_clustering(distance_df: pd.DataFrame, method: str = "average") -> pd.DataFrame:
-    condensed = distance_df.values[np.triu_indices_from(distance_df.values, k=1)]
+    condensed = np.ascontiguousarray(distance_df.values)[
+        np.triu_indices_from(distance_df.values, k=1)
+    ]
     linkage_matrix = linkage(condensed, method=method)
     return pd.DataFrame(linkage_matrix, columns=["cluster1", "cluster2", "distance", "count"])
 
@@ -130,3 +134,30 @@ def stratified_to_ko_table(stratified: pd.DataFrame) -> pd.DataFrame:
     sample_cols = [col for col in stratified.columns if col not in {"KO", "Taxon"}]
     grouped = stratified.groupby("KO", as_index=False)[sample_cols].sum()
     return grouped.set_index("KO")[sample_cols]
+
+
+def build_table1(top30: pd.DataFrame) -> pd.DataFrame:
+    """Build publication Table 1 from a Top-30 major ABRGs table."""
+    table = top30.copy()
+    table = table.sort_values("mean_abundance", ascending=False)
+    table.insert(0, "rank", range(1, len(table) + 1))
+    columns = ["rank", "gene_name", "mechanism", "antibiotic_class", "mean_abundance", "prevalence"]
+    if "description" in table.columns:
+        columns.insert(4, "description")
+    table = table.reset_index().rename(columns={"index": "KO"})
+    return table[["rank", "KO", *columns[1:]]]
+
+
+def top_kos_time_series_tidy(
+    relative_abundance: pd.DataFrame,
+    metadata: pd.DataFrame,
+    top_n: int,
+    day_col: str = "day",
+) -> pd.DataFrame:
+    """Return tidy time-series table for top KOs."""
+    mean_abundance = relative_abundance.mean(axis=1).sort_values(ascending=False)
+    top_kos = mean_abundance.head(top_n).index
+    top_table = relative_abundance.loc[top_kos]
+    tidy = top_table.reset_index().melt(id_vars="KO", var_name="sample_id", value_name="abundance")
+    tidy = tidy.merge(metadata[["sample_id", day_col]], on="sample_id", how="left")
+    return tidy[["day", "KO", "abundance", "sample_id"]].sort_values(["day", "KO"])
